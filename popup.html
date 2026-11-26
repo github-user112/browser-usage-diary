@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>浏览器使用日记</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <div>
+      <h1>浏览器使用日记</h1>
+      <p>只在本机统计站点停留时长</p>
+    </div>
+  </header>
+
+  <section class="summary">
+    <div class="summary-item"><span id="totalTime">0 分钟</span><small id="totalLabel">今日总时长</small></div>
+    <div class="summary-item"><span id="siteCount">0</span><small id="countLabel">访问站点</small></div>
+  </section>
+
+  <div class="tabs" role="tablist" aria-label="统计范围">
+    <button class="tab on" type="button" data-view="today" role="tab" aria-selected="true">今日</button>
+    <button class="tab" type="button" data-view="week" role="tab" aria-selected="false">近 7 天</button>
+  </div>
+
+  <div class="chart" id="chart" role="img" aria-label="停留时长柱状图"></div>
+  <p class="empty" id="empty" hidden>还没有统计数据，浏览几个网页后回来看看。</p>
+
+  <div class="status" id="status" role="status" aria-live="polite">数据只保存在本机，不读取完整网址，不上传任何内容。</div>
+  <button class="clear" id="clear" type="button">清空今日数据</button>
+  <p class="disclaimer">粉丝自制工具 · 非小米官方发布</p>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

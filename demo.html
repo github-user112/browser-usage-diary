@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>浏览器使用日记 · 效果演示</title>
+<link rel="stylesheet" href="popup.css" />
+<style>
+  body { background: #0b0d12; display: grid; place-items: center; min-height: 100vh; }
+  .wrap { width: 420px; background: #101218; border-radius: 24px; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+  .demo-tag { position: fixed; left: 28px; bottom: 24px; color: #7d8492; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <div><h1>浏览器使用日记</h1><p>只在本机统计站点停留时长</p></div>
+  </header>
+  <section class="summary">
+    <div class="summary-item"><span id="totalTime">0 分钟</span><small id="totalLabel">今日总时长</small></div>
+    <div class="summary-item"><span id="siteCount">0</span><small id="countLabel">访问站点</small></div>
+  </section>
+  <div class="tabs">
+    <button class="tab on" type="button" data-view="today">今日</button>
+    <button class="tab" type="button" data-view="week">近 7 天</button>
+  </div>
+  <div class="chart" id="chart"></div>
+  <p class="empty" id="empty" hidden>还没有统计数据，浏览几个网页后回来看看。</p>
+  <div class="status" id="status">数据只保存在本机，不读取完整网址，不上传任何内容。</div>
+  <button class="clear" id="clear" type="button">清空今日数据</button>
+  <p class="disclaimer">粉丝自制工具 · 非小米官方发布</p>
+</div>
+<div class="demo-tag">效果演示 · 数据为模拟，真实素材请用小米浏览器实拍</div>
+
+<script>
+var TODAY = [
+  ['www.mi.com', 8280000],
+  ['vibe-coding.browser.miui.com', 6120000],
+  ['github.com', 3360000],
+  ['www.zhihu.com', 2040000],
+  ['mail.qq.com', 720000]
+];
+var WEEK = [
+  ['11/20', 24600000], ['11/21', 31800000], ['11/22', 19200000],
+  ['11/23', 40200000], ['11/24', 27600000], ['11/25', 36000000], ['11/26', 20520000]
+];
+function format(ms) {
+  var sec = Math.floor(ms / 1000);
+  if (sec < 60) return sec + ' 秒';
+  var min = Math.floor(sec / 60);
+  if (min < 60) return min + ' 分钟';
+  return Math.floor(min / 60) + ' 小时' + (min % 60 ? ' ' + (min % 60) + ' 分' : '');
+}
+function render(items, factor) {
+  var chart = document.getElementById('chart');
+  chart.textContent = '';
+  var total = 0, shown = [];
+  items.forEach(function (it) {
+    var v = Math.round(it[1] * factor);
+    total += v;
+    if (v > 0) shown.push([it[0], v]);
+  });
+  document.getElementById('totalTime').textContent = format(total);
+  document.getElementById('siteCount').textContent = String(shown.length);
+  document.getElementById('empty').hidden = shown.length > 0;
+  var max = shown.reduce(function (m, i) { return Math.max(m, i[1]); }, 1);
+  shown.forEach(function (it) {
+    var row = document.createElement('div'); row.className = 'bar-row';
+    var head = document.createElement('div'); head.className = 'bar-head';
+    var n = document.createElement('span'); n.className = 'bar-name'; n.textContent = it[0];
+    var v = document.createElement('span'); v.className = 'bar-value'; v.textContent = format(it[1]);
+    head.appendChild(n); head.appendChild(v);
+    var track = document.createElement('div'); track.className = 'bar-track';
+    var fill = document.createElement('div'); fill.className = 'bar-fill';
+    fill.style.width = Math.max(3, Math.round(it[1] / max * 100)) + '%';
+    track.appendChild(fill);
+    row.appendChild(head); row.appendChild(track); chart.appendChild(row);
+  });
+}
+function select(view) {
+  document.querySelectorAll('.tab').forEach(function (b) {
+    var on = b.dataset.view === view;
+    b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.getElementById('totalLabel').textContent = view === 'today' ? '今日总时长' : '近 7 天总时长';
+  document.getElementById('countLabel').textContent = view === 'today' ? '访问站点' : '有记录天数';
+}
+window.setFrame = function (i) {
+  var status = document.getElementById('status');
+  if (i < 16) {
+    select('today'); render(TODAY, 0); status.textContent = '数据只保存在本机，不读取完整网址，不上传任何内容。';
+  } else if (i < 64) {
+    select('today'); render(TODAY, (i - 16) / 48); status.textContent = '正在统计本机站点停留时长…';
+  } else if (i < 96) {
+    select('week'); render(WEEK, 1); status.textContent = '近 7 天趋势，同样只存在本机。';
+  } else {
+    select('today'); render(TODAY, 1); status.textContent = '只记录站点域名，不读取完整网址，不上传任何内容。';
+  }
+};
+window.setFrame(0);
+var pf = new URLSearchParams(location.search).get('frame');
+if (pf) window.setFrame(Number(pf));
+</script>
+</body>
+</html>
