@@ -13,7 +13,7 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `browser-usage-diary.zip` | 提交包，11.0 KB，8 个文件，`manifest.json` 在根目录 |
+| `browser-usage-diary.zip` | 提交包，11.0 KB，8 个文件，`manifest.json` 在根目录，版本 1.1.0 |
 | `demo.mp4` | 演示视频：1080×1440，3:4 竖版，14 秒，0.90 MB |
 | `preview-today.png` / `preview-week.png` | 今日 / 近 7 天效果预览（模拟数据） |
 | `manifest.json` / `background.js` / `popup.*` / `icons/` | 扩展源码 |
@@ -33,7 +33,9 @@
 - `tabs.onActivated` / `tabs.onUpdated` / `tabs.onRemoved` 监听当前标签切换，把上一段停留时长结算进当天数据
 - `alarms` 每分钟结算一次，避免长时间停留不切换时漏记；alarm 不保证精确定时，但每次都用 `Date.now()` 实际时间差计算
 - 每次结算都从 storage 读取当前状态并写回，**不依赖 Service Worker 内存常驻**；写入通过队列串行化，避免事件并发重复累加
-- 浏览器重启时把残留的 `startedAt` 重置为当前时间，避免把关机时间算进停留时长
+- 浏览器重启时**整体重置 active 并重新锚定当前活动标签**（tabId 跨会话会失效，不能沿用旧 tabId/origin），避免把关机时间算进停留时长、也不会把启动后的时长记到旧站点头上
+- **自愈校准**：每个 alarm 结算后用 `tabs.query` 核对真实活动标签，即使标签事件全部丢失也能在一个周期内纠正；`tabs.onUpdated` 也不再要求 `active.tabId` 必须相等，只要更新的是当前活动标签就重新锚定
+- popup 打开/切换视图时先发 `usage-settle` 消息让 SW 立即结算当前停留段，再读取数据，保证看到的是最新时长
 - 只用官方清单内的 `storage` / `tabs` / `alarms`；未使用 history、notifications、idle、downloads 等不采用或双端不一致的能力
 
 ## 验证情况
@@ -89,4 +91,9 @@
 - 只存 `origin`（协议 + 主机），同一站点不同页面合并显示，这是隐私友好的设计取舍。
 - alarms 不保证精确定时，极短时间内切换标签（<1 秒）的时长会被忽略。
 - 未使用 `action.setBadgeText` 等不采用的能力；popup 按容器宽度布局，窄窗口改为单列。
-- 提交后不支持更新：真机验证完成后再上传最终 ZIP、截图和视频（三者须对应同一版本 1.0.0）。
+- 提交后不支持更新：真机验证完成后再上传最终 ZIP、截图和视频（三者须对应同一版本 1.1.0）。
+
+## 变更记录
+
+- **1.1.0**（2026-11-26）：修复真实扩展环境数据停更问题：①重启后 tabId 失效导致 `tabs.onUpdated` 永不匹配、时长记到旧站点；②标签事件丢失时无自愈手段；③关闭标签时盲写 `tabId=-1` 覆盖 `onActivated` 刚锚定的状态导致此后完全不计时；④popup 打开不结算、数据滞后。新增 alarm 后 `tabs.query` 校准、关闭标签后重新查询活动标签、`settle-now` 消息即时结算（带回传与 800ms 兜底）；回归测试 10 项断言通过。
+- 1.0.0：首个版本。

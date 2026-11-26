@@ -91,12 +91,15 @@
     });
   });
 
-  // 浏览器启动时，把上次残留的 active 时间重置到现在，避免把关机时间算进停留时长
+  // 浏览器启动时不能沿用上次的 active：tabId 跨会话会变，origin 也可能是关机前的旧页面。
+  // 整体重置并重新锚定当前活动标签：既不算入关机时间，也不会把启动后的时长记到旧站点头上。
   chrome.runtime.onStartup.addListener(function () {
     ensureAlarm();
     var now = Date.now();
-    chrome.storage.local.get(DEFAULTS, function (data) {
-      if (data.active) setActive(data.active.tabId, data.active.origin, now);
+    chrome.storage.local.set({ active: null }, function () {
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (tabs && tabs[0]) activate(tabs[0], now);
+      });
     });
   });
 
@@ -110,10 +113,13 @@
 
   chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
     if (!changeInfo.url) return;
+    // 只要正在更新的就是当前活动标签就重新锚定，不要求 active.tabId 必须相等：
+    // active 可能为空（安装时没有 http 标签）或残留旧会话的 tabId（跨重启失效），
+    // 否则导航永远不会触发结算，数据就停更了。
+    if (tab && tab.active) { activate(tab, Date.now()); return; }
     chrome.storage.local.get(DEFAULTS, function (data) {
       var active = data.active;
-      if (!active || active.tabId !== tabId) return;
-      activate(tab, Date.now());
+      if (active && active.tabId === tabId) activate(tab, Date.now());
     });
   });
 
@@ -135,7 +141,24 @@
   });
 
   chrome.alarms.onAlarm.addListener(function (alarm) {
-    if (alarm.name === ALARM) settle(Date.now());
+    if (alarm.name !== ALARM) return;
+    var now = Date.now();
+    settle(now).then(function () {
+      // 结算后用 tabs.query 的实时结果校准 active：即使标签事件全部丢失，
+      // 最迟一个 alarm 周期也能把时长记到真正活动的站点上（skill §2：不能只依赖事件与内存状态）
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (chrome.runtime.lastError || !tabs || !tabs[0]) return;
+        var tab = tabs[0];
+        if (typeof tab.id !== "number") return;
+        var origin = originOf(tab.url);
+        chrome.storage.local.get(DEFAULTS, function (data) {
+          var a = data.active;
+          if (!a || a.tabId !== tab.id || a.origin !== origin) {
+            setActive(tab.id, origin, now);
+          }
+        });
+      });
+    });
   });
 
   // popup 打开时请求立即结算一次：alarm 周期是 1 分钟，
