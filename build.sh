@@ -7,7 +7,19 @@ FILES="manifest.json background.js popup.html popup.css popup.js icons/icon16.pn
 rm -rf dist browser-usage-diary.zip
 mkdir -p dist/icons
 for f in $FILES; do mkdir -p "dist/$(dirname "$f")"; cp "$f" "dist/$f"; done
-(cd dist && zip -q ../browser-usage-diary.zip $FILES)
+
+# 不依赖系统 zip 命令：用 Python 按固定时间戳打包，保证同一份源码重复打包字节一致
+python3 - "$FILES" <<'PY'
+import sys, zipfile
+files = sys.argv[1].split()
+with zipfile.ZipFile('browser-usage-diary.zip', 'w', zipfile.ZIP_DEFLATED) as z:
+    for f in files:
+        zi = zipfile.ZipInfo(f, date_time=(2026, 11, 26, 0, 0, 0))
+        zi.compress_type = zipfile.ZIP_DEFLATED
+        zi.external_attr = 0o644 << 16
+        with open(f, 'rb') as fh:
+            z.writestr(zi, fh.read())
+PY
 
 python3 - <<'PY'
 import json, os, re, sys, zipfile

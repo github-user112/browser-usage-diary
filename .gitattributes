@@ -1,0 +1,7 @@
+# 源码统一 LF：ZIP 内嵌的 js/css/html 换行符必须与仓库一致，保证重复打包字节一致
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.zip binary
