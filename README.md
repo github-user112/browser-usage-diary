@@ -13,7 +13,7 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `browser-usage-diary.zip` | 提交包，10.1 KB，8 个文件，`manifest.json` 在根目录 |
+| `browser-usage-diary.zip` | 提交包，11.0 KB，8 个文件，`manifest.json` 在根目录 |
 | `demo.mp4` | 演示视频：1080×1440，3:4 竖版，14 秒，0.90 MB |
 | `preview-today.png` / `preview-week.png` | 今日 / 近 7 天效果预览（模拟数据） |
 | `manifest.json` / `background.js` / `popup.*` / `icons/` | 扩展源码 |
@@ -39,11 +39,20 @@
 ## 验证情况
 
 - `node --check` 通过；`build.sh` 自检 PASS（manifest、图标、大小、权限、禁用 API、外链）
-- 用 Node mock 驱动了 background.js 的 onInstalled / onActivated / alarm 流程，确认域名提取与时长累加正确（25 项断言）
-- 桌面 Edge 158 加载解包扩展做端到端验证：真实 alarm 结算、真实标签切换、真实 `storage` 落盘、popup 四态渲染
+- 用 Node mock 驱动了 background.js 全流程，确认域名提取、时长累加、并发串行化、离线时长剔除正确（28 项断言）
+- 桌面 Edge 158 加载解包扩展做端到端验证：真实 alarm 结算、真实标签切换、真实 `storage` 落盘、popup 四态渲染（36 项断言全通过）
 - 布局用 CDP 模拟 13 种视口（320 / 360 / 375 / 390 / 412 / 430 / 480 / 600 / 768 / 812 横屏 / 1024 / 1440）审计，横向溢出均为 0
 - 手机浏览器（Chromium 70）实测页面测量无溢出，但该机为 HeyTap 浏览器，**不等于小米浏览器验收**
 - 演示视频解码验证：140 帧 / 10fps / 1080×1440 / 14 秒
+
+### 已修复的两个计时缺陷
+
+| 缺陷 | 现象 | 原因与修法 |
+| --- | --- | --- |
+| 关闭标签后计时停摆 | 关掉当前标签后，即使焦点回到另一个正常网页，之后也一毫秒不记 | `tabs.onRemoved` 里结算完盲目写 `tabId=-1 / origin=null`，会覆盖 `onActivated` 已设好的状态。改为结算后重新 `tabs.query` 当前激活标签再写入 |
+| 刚浏览时看不到数据 | 打开弹窗显示「0 分钟」，误以为没有统计 | 结算周期是 1 分钟，popup 只读不触发结算。改为 popup 打开时先发 `settle-now` 让后台立即结算，再读取（带回传与 800ms 兜底） |
+
+另外「近 7 天」原先会过滤掉 0 值日期，只有几天有记录时趋势图退化成几根柱；现在固定渲染 7 天，空白日画空条。
 
 ## 目标端与测试状态（按 MiBrowser-extension-dev-skill §0 / §6 自检）
 

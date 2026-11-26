@@ -86,7 +86,7 @@
     track.className = "bar-track";
     var fill = document.createElement("div");
     fill.className = "bar-fill";
-    fill.style.width = Math.max(3, Math.round(value / max * 100)) + "%";
+    fill.style.width = value > 0 ? Math.max(3, Math.round(value / max * 100)) + "%" : "0%";
     track.appendChild(fill);
     row.appendChild(head); row.appendChild(track);
     return row;
@@ -123,8 +123,20 @@
       return;
     }
     empty.hidden = true;
-    var max = Math.max.apply(null, nonzero.map(function (i) { return i.value; }));
-    nonzero.slice(0, 8).forEach(function (i) { chart.appendChild(bar(i.name, i.value, max)); });
+    // 今日视图只列有记录的站点；近 7 天视图固定 7 天（0 值画空条），保留「趋势」语义
+    var shown = view === "week" ? items : nonzero;
+    var max = shown.reduce(function (m, i) { return i.value > m ? i.value : m; }, 0) || 1;
+    shown.slice(0, 8).forEach(function (i) { chart.appendChild(bar(i.name, i.value, max)); });
+  }
+
+  function readAndRender() {
+    chrome.storage.local.get({ days: {} }, function (data) {
+      if (chrome.runtime.lastError) {
+        say("读取失败：" + chrome.runtime.lastError.message, false);
+        return;
+      }
+      render(data.days);
+    });
   }
 
   function load() {
@@ -133,13 +145,31 @@
       render(demoDays());
       return;
     }
-    chrome.storage.local.get({ days: {} }, function (data) {
-      if (chrome.runtime.lastError) {
-        say("读取失败：" + chrome.runtime.lastError.message, false);
-        return;
-      }
-      render(data.days);
-    });
+    readAndRender();
+  }
+
+  /* 首次进入：先让后台把「当前这段尚未结算的停留」落盘再读取。
+     结算周期是 1 分钟，不做这一步的话刚浏览几十秒打开弹窗会看到 0，误以为没数据。 */
+  function bootstrap() {
+    if (!IS_EXT) {
+      load();
+      return;
+    }
+    var done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      readAndRender();
+    }
+    try {
+      chrome.runtime.sendMessage({ type: "settle-now" }, function () {
+        void chrome.runtime.lastError;
+        finish();
+      });
+    } catch (e) {
+      finish();
+    }
+    window.setTimeout(finish, 800); // 后台无响应时的兜底
   }
 
   document.querySelectorAll(".tab").forEach(function (btn) {
@@ -185,5 +215,5 @@
   });
 
   if (IS_EXT) chrome.storage.onChanged.addListener(function () { load(); });
-  load();
+  bootstrap();
 })();

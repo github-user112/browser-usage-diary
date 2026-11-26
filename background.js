@@ -118,15 +118,35 @@
   });
 
   chrome.tabs.onRemoved.addListener(function (tabId) {
-    var now = Date.now();
     chrome.storage.local.get(DEFAULTS, function (data) {
-      if (data.active && data.active.tabId === tabId) {
-        settle(now).then(function () { setActive(-1, null, now); });
-      }
+      if (!data.active || data.active.tabId !== tabId) return;
+      // 关闭标签时浏览器会把焦点切到另一个标签，并且 onActivated 可能先于本回调落地。
+      // 因此结算后必须重新问一次当前激活标签，不能盲写 -1/null，
+      // 否则会把 onActivated 设置好的状态覆盖成「无活动页」，导致此后完全不计时。
+      settle(Date.now()).then(function () {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+          void chrome.runtime.lastError;
+          var t = tabs && tabs[0];
+          var id = t && typeof t.id === "number" ? t.id : -1;
+          setActive(id, id === -1 ? null : originOf(t.url), Date.now());
+        });
+      });
     });
   });
 
   chrome.alarms.onAlarm.addListener(function (alarm) {
     if (alarm.name === ALARM) settle(Date.now());
+  });
+
+  // popup 打开时请求立即结算一次：alarm 周期是 1 分钟，
+  // 不做这一步的话用户刚浏览的几十秒看不到，会误以为没有统计数据。
+  chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+    if (!msg || msg.type !== "settle-now") return;
+    settle(Date.now()).then(function () {
+      chrome.storage.local.get(DEFAULTS, function (data) {
+        sendResponse({ ok: true, days: data.days || {} });
+      });
+    });
+    return true; // 异步响应
   });
 })();
