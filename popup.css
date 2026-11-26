@@ -1,71 +1,258 @@
+/* 浏览器使用日记 · popup / 演示页共用样式
+ *
+ * 兼容基线：Chromium 70（部分国产浏览器/系统 WebView 仍停留在这个内核）。
+ * 因此不使用 clamp() / min() / max() —— 这三个都是 Chrome 79+ 才有的，
+ * 在旧内核里会让整条声明失效（变量算不出来 → padding 变 0、按钮塌高）。
+ *
+ * 自适应策略（与机型无关）：
+ *   1. 尺寸全部走 CSS 变量，按 4 个宽度区间重算，320px → 800px 连续覆盖
+ *   2. 双列统计卡用 auto-fit 自动折行，不靠固定断点
+ *   3. flex 容器一律不用 gap（Chrome 84+ 才支持 flex gap），改用 margin
+ *   4. 刘海屏用 env(safe-area-inset-*) 叠加在基础内边距上
+ *   5. 长域名 ellipsis + word-break 兜底，任何字符串都不会撑破布局
+ */
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* ---------- 基准值：超窄屏（< 360px） ---------- */
+:root {
+  --pad-x: 12px;
+  --pad-y: 14px;
+  --gap-s: 6px;
+  --gap-m: 10px;
+  --gap-l: 14px;
+
+  --fs-h1: 14px;
+  --fs-sub: 9.5px;
+  --fs-num: 19px;
+  --fs-tab: 11px;
+  --fs-bar: 10.5px;
+
+  --tap: 36px;
+  --radius-lg: 11px;
+  --radius-sm: 9px;
+  --logo: 30px;
+  --track: 6px;
+}
+
+/* ---------- 360–399px：主流小屏 ---------- */
+@media (min-width: 360px) {
+  :root {
+    --pad-x: 14px; --pad-y: 16px;
+    --gap-s: 7px; --gap-m: 12px; --gap-l: 16px;
+    --fs-h1: 14.5px; --fs-sub: 10px; --fs-num: 20px;
+    --fs-tab: 11.5px; --fs-bar: 11px;
+    --tap: 38px; --radius-lg: 12px; --radius-sm: 9.5px;
+    --logo: 32px; --track: 7px;
+  }
+}
+
+/* ---------- 400–479px：大屏手机 ---------- */
+@media (min-width: 400px) {
+  :root {
+    --pad-x: 16px; --pad-y: 18px;
+    --gap-s: 8px; --gap-m: 14px; --gap-l: 17px;
+    --fs-h1: 15px; --fs-sub: 10px; --fs-num: 21px;
+    --fs-tab: 12px; --fs-bar: 11px;
+    --tap: 40px; --radius-lg: 13px; --radius-sm: 10px;
+    --logo: 34px; --track: 8px;
+  }
+}
+
+/* ---------- 480px 以上：平板 / 宽窗 ---------- */
+@media (min-width: 480px) {
+  :root {
+    --pad-x: 18px; --pad-y: 20px;
+    --gap-s: 9px; --gap-m: 16px; --gap-l: 18px;
+    --fs-h1: 15.5px; --fs-sub: 10.5px; --fs-num: 22px;
+    --fs-tab: 12.5px; --fs-bar: 11.5px;
+    --tap: 42px; --radius-lg: 13px; --radius-sm: 10px;
+    --logo: 36px; --track: 8px;
+  }
+}
+
+/* ---------- 600px 以上：规范 §0 的 wide 容器（Pad 分屏 / 侧面板 / 宽窗） ---------- */
+@media (min-width: 600px) {
+  :root {
+    --pad-x: 22px; --pad-y: 22px;
+    --gap-m: 18px; --gap-l: 20px;
+    --fs-num: 23px;
+  }
+}
+
 body {
-  min-width: min(300px, 100vw);
+  /* 扩展 popup 由内容撑宽：下限 300、上限 420；不写死 width:100vw */
+  min-width: 300px;
   width: 100%;
   max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
   background: #101218;
   color: #f2f4f8;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
 }
-.wrap { padding: 18px 16px 20px; }
+
+.wrap {
+  padding: var(--pad-y) var(--pad-x);
+  /* 刘海屏 / 圆角屏让位：env() 可用时叠加，不可用时保持基础内边距 */
+  padding-left: calc(var(--pad-x) + env(safe-area-inset-left));
+  padding-right: calc(var(--pad-x) + env(safe-area-inset-right));
+  padding-bottom: calc(var(--pad-y) + env(safe-area-inset-bottom));
+}
+
 :focus-visible { outline: 2px solid #ffb15c; outline-offset: 2px; }
 
-.head { display: flex; align-items: center; gap: 11px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.09); }
+/* ---------- 头部（flex 不用 gap，用 margin 兼容旧内核） ---------- */
+.head {
+  display: flex;
+  align-items: center;
+  padding-bottom: var(--gap-m);
+  border-bottom: 1px solid rgba(255,255,255,.09);
+  min-width: 0;
+}
+.head > * + * { margin-left: 11px; }
+
 .logo {
-  width: 36px; height: 36px; flex: 0 0 auto; border-radius: 11px;
+  width: var(--logo);
+  height: var(--logo);
+  flex: 0 0 auto;
+  border-radius: var(--radius-lg);
   background: linear-gradient(145deg, #ffb15c, #ff5a00);
-  display: flex; align-items: flex-end; justify-content: center; gap: 3px;
-  padding: 8px; transform: rotate(-4deg);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 8px;
+  transform: rotate(-4deg);
   box-shadow: 0 6px 18px rgba(255,106,0,.28);
 }
-.logo i { width: 4px; border-radius: 2px 2px 0 0; background: #fff; }
-.logo i:nth-child(1) { height: 8px; }
-.logo i:nth-child(2) { height: 14px; }
-.logo i:nth-child(3) { height: 20px; }
-.logo i:nth-child(4) { height: 12px; }
-.head h1 { font-size: 15px; margin: 0; letter-spacing: .02em; }
-.head p { font-size: 10px; color: #8e95a3; margin: 3px 0 0; }
-
-.summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
-.summary-item {
-  padding: 14px 12px; border-radius: 13px;
-  background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08);
-  display: flex; flex-direction: column; gap: 4px;
+.logo i {
+  width: 4px; margin: 0 1.5px; border-radius: 2px 2px 0 0; background: #fff;
 }
-.summary-item span { font-size: 22px; font-weight: 800; color: #ffb15c; letter-spacing: -.02em; }
-.summary-item small { font-size: 10px; color: #8e95a3; }
+.logo i:nth-child(1) { height: 40%; }
+.logo i:nth-child(2) { height: 70%; }
+.logo i:nth-child(3) { height: 100%; }
+.logo i:nth-child(4) { height: 60%; }
 
-.tabs { display: flex; gap: 6px; margin-top: 18px; }
+.head > div { min-width: 0; }
+.head h1 {
+  font-size: var(--fs-h1); margin: 0; letter-spacing: .02em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.head p {
+  font-size: var(--fs-sub); color: #8e95a3; margin: 3px 0 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------- 统计卡：auto-fit 自动折行，不写死列数 ---------- */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--gap-s);
+  margin-top: var(--gap-m);
+}
+.summary-item {
+  padding: 13px 12px;
+  border-radius: var(--radius-lg);
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.08);
+  display: flex; flex-direction: column;
+  min-width: 0;
+}
+.summary-item span {
+  font-size: var(--fs-num); font-weight: 800; color: #ffb15c;
+  letter-spacing: -.02em; line-height: 1.15;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.summary-item small { font-size: var(--fs-sub); color: #8e95a3; margin-top: 4px; }
+
+/* ---------- 选项卡：grid 两列（grid gap 在旧内核可用） ---------- */
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap-s);
+  margin-top: var(--gap-l);
+}
 .tab {
-  flex: 1; min-height: 36px; border-radius: 10px; cursor: pointer;
+  min-width: 0; min-height: var(--tap);
+  border-radius: var(--radius-sm); cursor: pointer;
   border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
-  color: #9aa1ad; font-size: 12px; font-weight: 600;
+  color: #9aa1ad; font-size: var(--fs-tab); font-weight: 600;
+  padding: 0 8px;
+  transition: background .2s ease, border-color .2s ease, color .2s ease;
 }
 .tab.on { border-color: #ff8a3d; background: rgba(255,138,61,.14); color: #ffb15c; }
 
-.chart { display: grid; gap: 11px; margin-top: 16px; }
-.bar-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; }
-.bar-head { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #c7ccd5; }
-.bar-head .bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar-head .bar-value { color: #ffb15c; flex: 0 0 auto; }
-.bar-track { height: 8px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
-.bar-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #ff6a17, #ffc078); transition: width .35s ease; }
-.empty { font-size: 11px; color: #7d8492; text-align: center; padding: 28px 0; margin: 0; }
+/* ---------- 图表 ---------- */
+.chart { display: grid; gap: var(--gap-m); margin-top: var(--gap-m); }
+.bar-row { display: grid; grid-template-columns: 1fr; gap: 5px; }
+.bar-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: var(--fs-bar); color: #c7ccd5; min-width: 0;
+}
+.bar-head .bar-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; word-break: break-word;
+}
+.bar-head .bar-value {
+  color: #ffb15c; flex: 0 0 auto; white-space: nowrap;
+  margin-left: 8px;
+}
+.bar-track {
+  height: var(--track); border-radius: 99px;
+  background: rgba(255,255,255,.08); overflow: hidden;
+}
+.bar-fill {
+  height: 100%; width: 0; border-radius: inherit;
+  background: linear-gradient(90deg, #ff6a17, #ffc078);
+  transition: width .35s ease;
+}
+.empty {
+  font-size: var(--fs-bar); color: #7d8492; text-align: center;
+  padding: 24px 0; margin: 0;
+}
 
-.status { margin-top: 18px; font-size: 10px; line-height: 1.5; color: #8e95a3; min-height: 30px; }
+/* ---------- 底部 ---------- */
+.status {
+  margin-top: var(--gap-l); font-size: var(--fs-sub); line-height: 1.55;
+  color: #8e95a3; min-height: 30px;
+}
 .status.ok { color: #ffb15c; }
 .clear {
-  width: 100%; min-height: 40px; border-radius: 10px; cursor: pointer;
+  display: block;
+  width: 100%; min-height: var(--tap); border-radius: var(--radius-sm); cursor: pointer;
   border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05);
-  color: #cfd4dd; font-size: 12px; font-weight: 600;
+  color: #cfd4dd; font-size: var(--fs-tab); font-weight: 600;
+  padding: 0 10px;
+  transition: background .2s ease, border-color .2s ease, color .2s ease;
 }
 .clear:hover { background: rgba(255,255,255,.09); }
 .clear.confirm { border-color: #ff6a17; color: #ffb15c; background: rgba(255,106,23,.12); }
-.disclaimer { text-align: center; font-size: 10px; color: #9aa1ad; margin: 13px 0 0; }
+.disclaimer {
+  text-align: center; font-size: var(--fs-sub); color: #9aa1ad;
+  margin: 12px 0 0;
+}
 
-@media (max-width: 330px) {
+/* ---------- 物理边界（不是适配某个机型，是布局下限） ---------- */
+/* 超窄屏：任何字体渲染下都不横向溢出 */
+@media (max-width: 320px) {
+  :root { --pad-x: 10px; --pad-y: 12px; --tap: 34px; }
   .summary { grid-template-columns: 1fr; }
-  .tab { min-height: 44px; }
+  .tabs { grid-template-columns: 1fr; }
+}
+
+/* 横屏矮屏：压缩纵向留白，交给页面滚动，不裁内容 */
+@media (orientation: landscape) and (max-height: 460px) {
+  :root { --pad-y: 10px; --gap-l: 12px; --gap-m: 10px; }
+  .summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+}
+
+/* 系统开启"减少动态效果" */
+@media (prefers-reduced-motion: reduce) {
+  .bar-fill, .tab, .clear { transition: none; }
 }

@@ -13,6 +13,32 @@
   var view = "today";
   var confirmClear = false;
 
+  /* 是否运行在浏览器扩展环境里。为 false 时（例如直接用浏览器打开 popup.html 预览），
+     用示例数据渲染，避免 chrome.storage 不存在导致脚本中断、页面停在 0。
+     扩展环境下这段分支不会执行，真实数据路径与原来完全一致。 */
+  var IS_EXT = typeof chrome !== "undefined" && !!(chrome.storage && chrome.storage.local);
+
+  var DEMO_STATIONS = [
+    ["https://www.mi.com", 8280000],
+    ["https://vibe-coding.browser.miui.com", 6120000],
+    ["https://github.com", 3360000],
+    ["https://www.zhihu.com", 2040000],
+    ["https://mail.qq.com", 720000]
+  ];
+
+  function demoDays() {
+    var days = {};
+    var base = [1, 0.9, 1, 0.72, 0.95, 0.85, 0.62];
+    for (var i = 6; i >= 0; i--) {
+      var bucket = {};
+      DEMO_STATIONS.forEach(function (s) {
+        bucket[s[0]] = Math.round(s[1] * base[i] * (i === 0 ? 1 : 0.8));
+      });
+      days[dayKey(Date.now() - i * 86400000)] = bucket;
+    }
+    return days;
+  }
+
   function dayKey(ts) {
     var d = new Date(ts);
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -102,6 +128,11 @@
   }
 
   function load() {
+    if (!IS_EXT) {
+      say("预览模式 · 当前不在浏览器扩展中运行，以下为示例数据。", true);
+      render(demoDays());
+      return;
+    }
     chrome.storage.local.get({ days: {} }, function (data) {
       if (chrome.runtime.lastError) {
         say("读取失败：" + chrome.runtime.lastError.message, false);
@@ -124,6 +155,10 @@
   });
 
   clearBtn.addEventListener("click", function () {
+    if (!IS_EXT) {
+      say("预览模式下没有真实数据可清空。", false);
+      return;
+    }
     if (!confirmClear) {
       confirmClear = true;
       clearBtn.textContent = "再点一次确认清空";
@@ -149,6 +184,6 @@
     });
   });
 
-  chrome.storage.onChanged.addListener(function () { load(); });
+  if (IS_EXT) chrome.storage.onChanged.addListener(function () { load(); });
   load();
 })();

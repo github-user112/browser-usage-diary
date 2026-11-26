@@ -38,27 +38,35 @@
 
   function settle(now) {
     return enqueue(function () {
-      return chrome.storage.local.get(DEFAULTS).then(function (data) {
-        var active = data.active;
-        var days = data.days || {};
-        if (!active || !active.origin) return;
+      // 用 callback 形式调用 storage：Promise 形式需要 Chrome 95+，
+      // 国内浏览器内核版本参差（实测机型内核仅 Chromium 70），callback 全版本可用
+      return new Promise(function (resolve) {
+        chrome.storage.local.get(DEFAULTS, function (data) {
+          var active = data.active;
+          var days = data.days || {};
+          if (!active || !active.origin) { resolve(); return; }
 
-        var delta = Math.max(0, now - (active.startedAt || now));
-        var updated = { tabId: active.tabId, origin: active.origin, startedAt: now };
-        if (delta >= 1000) {
-          var key = dayKey(now);
-          if (!days[key]) days[key] = {};
-          days[key][active.origin] = (days[key][active.origin] || 0) + delta;
-        }
-        return chrome.storage.local.set({ active: updated, days: prune(days, now) });
+          var delta = Math.max(0, now - (active.startedAt || now));
+          var updated = { tabId: active.tabId, origin: active.origin, startedAt: now };
+          if (delta >= 1000) {
+            var key = dayKey(now);
+            if (!days[key]) days[key] = {};
+            days[key][active.origin] = (days[key][active.origin] || 0) + delta;
+          }
+          chrome.storage.local.set({ active: updated, days: prune(days, now) }, function () {
+            resolve();
+          });
+        });
       });
     });
   }
 
   function setActive(tabId, origin, now) {
     return enqueue(function () {
-      return chrome.storage.local.set({
-        active: { tabId: tabId, origin: origin, startedAt: now || Date.now() }
+      return new Promise(function (resolve) {
+        chrome.storage.local.set({
+          active: { tabId: tabId, origin: origin, startedAt: now || Date.now() }
+        }, function () { resolve(); });
       });
     });
   }
