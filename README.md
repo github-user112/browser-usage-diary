@@ -13,9 +13,9 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `browser-usage-diary.zip` | 提交包，11.0 KB，8 个文件，`manifest.json` 在根目录，版本 1.1.0 |
-| `demo.mp4` | 演示视频：1080×1440，3:4 竖版，14 秒，0.90 MB |
-| `preview-today.png` / `preview-week.png` | 今日 / 近 7 天效果预览（模拟数据） |
+| `browser-usage-diary.zip` | 提交包，11.5 KB，8 个文件，`manifest.json` 在根目录，版本 1.1.0 |
+| `demo.mp4` | 演示视频：1080×1440，3:4 竖版，14 秒，0.90 MB（1.0.0 视觉样式，仅作效果演示） |
+| `preview-today.png` / `preview-week.png` | 今日 / 近 7 天效果预览（模拟数据，已按 1.1.0 自适应 UI 重新生成） |
 | `manifest.json` / `background.js` / `popup.*` / `icons/` | 扩展源码 |
 | `build.sh` | 重新打包并自检（权限、禁用 API、外链、eval、inline 事件） |
 | `demo.html` / `make_video.py` | 演示页与视频生成脚本（不进 ZIP） |
@@ -96,4 +96,5 @@
 ## 变更记录
 
 - **1.1.0**（2026-11-26）：修复真实扩展环境数据停更问题：①重启后 tabId 失效导致 `tabs.onUpdated` 永不匹配、时长记到旧站点；②标签事件丢失时无自愈手段；③关闭标签时盲写 `tabId=-1` 覆盖 `onActivated` 刚锚定的状态导致此后完全不计时；④popup 打开不结算、数据滞后。新增 alarm 后 `tabs.query` 校准、关闭标签后重新查询活动标签、`settle-now` 消息即时结算（带回传与 800ms 兜底）；回归测试 10 项断言通过。
+  - 同版配套：`preview-today.png` / `preview-week.png` 按新的自适应 UI 重新生成（1080×1440，与视频同规格）；`demo.mp4` 仍为 1.0.0 视觉样式，仅作效果演示，真机验收须重新录制。
 - 1.0.0：首个版本。
